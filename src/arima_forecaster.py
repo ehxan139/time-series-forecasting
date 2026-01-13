@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 class ARIMAForecaster:
     """
     ARIMA/SARIMA forecaster with automatic order selection.
-    
+
     Parameters
     ----------
     seasonal : bool, default=False
@@ -33,8 +33,8 @@ class ARIMAForecaster:
     max_q : int, default=5
         Maximum MA order to try
     """
-    
-    def __init__(self, seasonal=False, m=12, auto_select=True, 
+
+    def __init__(self, seasonal=False, m=12, auto_select=True,
                  max_p=5, max_d=2, max_q=5):
         self.seasonal = seasonal
         self.m = m
@@ -46,11 +46,11 @@ class ARIMAForecaster:
         self.model_fit = None
         self.best_order = None
         self.best_seasonal_order = None
-        
+
     def check_stationarity(self, series):
         """
         Check if time series is stationary using ADF and KPSS tests.
-        
+
         Returns
         -------
         dict with test results and recommendations
@@ -58,11 +58,11 @@ class ARIMAForecaster:
         # Augmented Dickey-Fuller test
         adf_result = adfuller(series.dropna())
         adf_stationary = adf_result[1] < 0.05
-        
+
         # KPSS test
         kpss_result = kpss(series.dropna(), regression='ct')
         kpss_stationary = kpss_result[1] > 0.05
-        
+
         return {
             'adf_pvalue': adf_result[1],
             'adf_stationary': adf_stationary,
@@ -71,7 +71,7 @@ class ARIMAForecaster:
             'is_stationary': adf_stationary and kpss_stationary,
             'differencing_needed': not (adf_stationary and kpss_stationary)
         }
-    
+
     def _find_best_order(self, series):
         """
         Find best ARIMA order using grid search and AIC.
@@ -79,12 +79,12 @@ class ARIMAForecaster:
         best_aic = np.inf
         best_order = None
         best_seasonal_order = None
-        
+
         # Define order ranges
         p_range = range(0, self.max_p + 1)
         d_range = range(0, self.max_d + 1)
         q_range = range(0, self.max_q + 1)
-        
+
         # Test combinations
         for p, d, q in itertools.product(p_range, d_range, q_range):
             try:
@@ -95,7 +95,7 @@ class ARIMAForecaster:
                             seasonal_order = (0, 0, 0, 0)
                         else:
                             seasonal_order = (P, D, Q, self.m)
-                        
+
                         model = SARIMAX(
                             series,
                             order=(p, d, q),
@@ -104,7 +104,7 @@ class ARIMAForecaster:
                             enforce_invertibility=False
                         )
                         fitted = model.fit(disp=False, maxiter=200)
-                        
+
                         if fitted.aic < best_aic:
                             best_aic = fitted.aic
                             best_order = (p, d, q)
@@ -117,20 +117,20 @@ class ARIMAForecaster:
                         enforce_invertibility=False
                     )
                     fitted = model.fit(disp=False, maxiter=200)
-                    
+
                     if fitted.aic < best_aic:
                         best_aic = fitted.aic
                         best_order = (p, d, q)
-                        
+
             except:
                 continue
-        
+
         return best_order, best_seasonal_order, best_aic
-    
+
     def fit(self, dates, values, order=None, seasonal_order=None):
         """
         Fit ARIMA model to time series data.
-        
+
         Parameters
         ----------
         dates : array-like
@@ -147,7 +147,7 @@ class ARIMAForecaster:
             ts = pd.Series(values, index=pd.to_datetime(dates))
         else:
             ts = values
-        
+
         # Auto-select order if not provided
         if self.auto_select and order is None:
             print("Selecting best ARIMA order...")
@@ -158,7 +158,7 @@ class ARIMAForecaster:
         else:
             self.best_order = order or (1, 1, 1)
             self.best_seasonal_order = seasonal_order or (0, 0, 0, 0)
-        
+
         # Fit model
         if self.seasonal:
             self.model = SARIMAX(
@@ -175,15 +175,15 @@ class ARIMAForecaster:
                 enforce_stationarity=False,
                 enforce_invertibility=False
             )
-        
+
         self.model_fit = self.model.fit(disp=False, maxiter=200)
-        
+
         return self
-    
+
     def predict(self, steps=12, return_conf_int=True, alpha=0.05):
         """
         Generate forecasts for future time steps.
-        
+
         Parameters
         ----------
         steps : int
@@ -192,7 +192,7 @@ class ARIMAForecaster:
             Whether to return confidence intervals
         alpha : float
             Significance level for confidence intervals
-        
+
         Returns
         -------
         forecast : array or DataFrame
@@ -200,10 +200,10 @@ class ARIMAForecaster:
         """
         if self.model_fit is None:
             raise ValueError("Model must be fitted before prediction")
-        
+
         # Generate forecast
         forecast = self.model_fit.forecast(steps=steps)
-        
+
         if return_conf_int:
             # Get prediction intervals
             pred = self.model_fit.get_prediction(
@@ -211,21 +211,21 @@ class ARIMAForecaster:
                 end=len(self.model_fit.fittedvalues) + steps - 1
             )
             pred_df = pred.summary_frame(alpha=alpha)
-            
+
             return pd.DataFrame({
                 'forecast': forecast.values,
                 'lower': pred_df['mean_ci_lower'].values,
                 'upper': pred_df['mean_ci_upper'].values
             })
-        
+
         return forecast
-    
+
     def get_residuals(self):
         """Get model residuals for diagnostics."""
         if self.model_fit is None:
             raise ValueError("Model must be fitted first")
         return self.model_fit.resid
-    
+
     def summary(self):
         """Print model summary."""
         if self.model_fit is None:

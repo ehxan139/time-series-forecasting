@@ -12,7 +12,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing, SimpleExpSmoothing
 class ExponentialSmoothingForecaster:
     """
     Exponential smoothing forecaster with multiple methods.
-    
+
     Parameters
     ----------
     method : str, default='holt_winters'
@@ -24,8 +24,8 @@ class ExponentialSmoothingForecaster:
     trend : str, optional
         Trend component type: 'add' or 'mul'
     """
-    
-    def __init__(self, method='holt_winters', seasonal=None, 
+
+    def __init__(self, method='holt_winters', seasonal=None,
                  seasonal_periods=None, trend='add'):
         self.method = method.lower()
         self.seasonal = seasonal
@@ -33,16 +33,16 @@ class ExponentialSmoothingForecaster:
         self.trend = trend
         self.model = None
         self.model_fit = None
-        
+
         # Validate method
         valid_methods = ['simple', 'holt', 'holt_winters']
         if self.method not in valid_methods:
             raise ValueError(f"Method must be one of {valid_methods}")
-    
+
     def fit(self, dates, values):
         """
         Fit exponential smoothing model.
-        
+
         Parameters
         ----------
         dates : array-like
@@ -55,20 +55,20 @@ class ExponentialSmoothingForecaster:
             ts = pd.Series(values, index=pd.to_datetime(dates))
         else:
             ts = values
-        
+
         # Fit appropriate model
         if self.method == 'simple':
             self.model = SimpleExpSmoothing(ts)
             self.model_fit = self.model.fit()
-            
+
         elif self.method == 'holt':
             self.model = Holt(ts)
             self.model_fit = self.model.fit()
-            
+
         elif self.method == 'holt_winters':
             if self.seasonal is None or self.seasonal_periods is None:
                 raise ValueError("Holt-Winters requires seasonal and seasonal_periods")
-            
+
             self.model = ExponentialSmoothing(
                 ts,
                 trend=self.trend,
@@ -76,18 +76,18 @@ class ExponentialSmoothingForecaster:
                 seasonal_periods=self.seasonal_periods
             )
             self.model_fit = self.model.fit()
-        
+
         return self
-    
+
     def predict(self, steps=12):
         """
         Generate forecasts.
-        
+
         Parameters
         ----------
         steps : int
             Number of steps to forecast
-        
+
         Returns
         -------
         forecast : array
@@ -95,14 +95,14 @@ class ExponentialSmoothingForecaster:
         """
         if self.model_fit is None:
             raise ValueError("Model must be fitted before prediction")
-        
+
         forecast = self.model_fit.forecast(steps=steps)
         return forecast
-    
+
     def get_level_trend_seasonal(self):
         """
         Get smoothed level, trend, and seasonal components.
-        
+
         Returns
         -------
         components : dict
@@ -110,13 +110,13 @@ class ExponentialSmoothingForecaster:
         """
         if self.model_fit is None:
             raise ValueError("Model must be fitted first")
-        
+
         components = {'level': self.model_fit.level}
-        
+
         if self.method in ['holt', 'holt_winters']:
             components['trend'] = self.model_fit.slope
-        
+
         if self.method == 'holt_winters':
             components['seasonal'] = self.model_fit.season
-        
+
         return components
